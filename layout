@@ -1,0 +1,298 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Modal,
+} from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+const DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/";
+
+const WordSoup = () => {
+  const [letters, setLetters] = useState([]); // Letters in the soup
+  const [selectedLetters, setSelectedLetters] = useState([]); // Letters selected by player
+  const [score, setScore] = useState(0); // Player score
+  const [timeLeft, setTimeLeft] = useState(40); // Timer
+  const [round, setRound] = useState(1); // Current round
+  const [submittedWords, setSubmittedWords] = useState([]); // Words already submitted this round
+  const [gameOver, setGameOver] = useState(false); // Game Over state
+  const timerRef = useRef();
+
+  useEffect(() => {
+    startNewRound(); // Start the first round
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 1) {
+          nextRound(); // Move to next round when time runs out
+          return 40; // Reset the timer for the next round
+        }
+        return prevTime - 1; // Decrease time by 1 second
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current); // Clear interval on unmount
+  }, []);
+
+  const startNewRound = () => {
+    generateRandomLetters(); // Generate new random letters
+    setSelectedLetters([]); // Clear selected letters
+    setSubmittedWords([]); // Reset submitted words for the new round
+  };
+
+  const generateRandomLetters = () => {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let randomLetters = [];
+    for (let i = 0; i < 12; i++) {
+      randomLetters.push(
+        alphabet.charAt(Math.floor(Math.random() * alphabet.length))
+      );
+    }
+    setLetters(shuffleArray(randomLetters)); // Shuffle the letters for random display
+  };
+
+  const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
+
+  const handleLetterPress = (letter) => {
+    if (!selectedLetters.includes(letter)) {
+      setSelectedLetters([...selectedLetters, letter]); // Add letter to selected
+    } else {
+      Alert.alert(
+        "Duplicate Letter",
+        "You cannot select the same letter twice."
+      );
+    }
+  };
+
+  // Validate the word entered by the player
+  const validateWord = async () => {
+    const word = selectedLetters.join("").toUpperCase();
+
+    if (word.length <= 1) {
+      Alert.alert("Invalid Word", "Words must contain more than one letter.");
+      setSelectedLetters([]); // Clear selected letters
+      return;
+    }
+
+    if (submittedWords.includes(word)) {
+      Alert.alert("Duplicate Word", "You have already submitted this word.");
+      setSelectedLetters([]);
+      return;
+    }
+
+    const isValid = await checkWord(word);
+    if (isValid) {
+      setScore((prevScore) => prevScore + word.length); // Increase score based on word length
+      setSubmittedWords([...submittedWords, word]); // Add word to submitted words
+      Alert.alert("Correct!", `You found the word: ${word}`);
+    } else {
+      Alert.alert("Incorrect", `${word} is not a valid word.`);
+    }
+    setSelectedLetters([]);
+  };
+
+  const checkWord = async (word) => {
+    try {
+      const response = await fetch(`${DICTIONARY_API_URL}${word}`);
+      const data = await response.json();
+      return data.length > 0; // Word is valid if API returns data
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const nextRound = () => {
+    if (round < 10) {
+      setRound((prevRound) => prevRound + 1);
+      setTimeLeft(40);
+      startNewRound();
+    } else {
+      endGame(); // End game after 10 rounds
+    }
+  };
+
+  const endGame = () => {
+    setGameOver(true);
+    clearInterval(timerRef.current); // Stop the timer
+  };
+
+  const resetGame = () => {
+    setScore(0);
+    setRound(1);
+    setTimeLeft(40);
+    setGameOver(false);
+    startNewRound();
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prevTime) => (prevTime > 1 ? prevTime - 1 : nextRound()));
+    }, 1000);
+  };
+
+  const handleBackspace = () => {
+    setSelectedLetters((prevLetters) => prevLetters.slice(0, -1)); // Remove last selected letter
+  };
+
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <Text style={styles.title}>Word Soup</Text>
+      <Text style={styles.timer}>Time Left: {timeLeft}s</Text>
+
+      {/* Display the alphabet soup */}
+      <View style={styles.soupContainer}>
+        {letters.map((letter, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.pastaLetter}
+            onPress={() => handleLetterPress(letter)}
+          >
+            <Text style={styles.letterText}>{letter}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Display selected letters with the backspace button on the right */}
+      <View style={styles.selectedLettersContainer}>
+        <View style={styles.gridContainer}>
+          {selectedLetters.map((letter, index) => (
+            <Text key={index} style={styles.gridLetter}>
+              {letter}
+            </Text>
+          ))}
+        </View>
+        {/* Transparent Backspace button at the right of selected letters */}
+        <TouchableOpacity
+          style={styles.backspaceButton}
+          onPress={handleBackspace}
+        >
+          <Text style={styles.backspaceText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Submit button */}
+      <TouchableOpacity style={styles.submitButton} onPress={validateWord}>
+        <Text style={styles.submitButtonText}>Submit Word</Text>
+      </TouchableOpacity>
+
+      {/* Display score and round */}
+      <Text style={styles.score}>Score: {score}</Text>
+      <Text style={styles.round}>Round: {round}/10</Text>
+
+      {/* Game over modal */}
+      <Modal visible={gameOver} transparent animationType="slide">
+        <View style={styles.gameOverContainer}>
+          <Text style={styles.gameOverText}>🎉</Text>
+          <Text style={styles.finalScore}>Your Final Score: {score}</Text>
+          <TouchableOpacity style={styles.resetButton} onPress={resetGame}>
+            <Text style={styles.resetButtonText}>Play Again</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </GestureHandlerRootView>
+  );
+};
+
+// StyleSheet to style the game
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5dc",
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  timer: {
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  soupContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  pastaLetter: {
+    backgroundColor: "#ffd700", // Yellow background for round buttons
+    width: 60,
+    height: 60,
+    borderRadius: 30, // Makes the button round
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 5,
+  },
+  letterText: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  selectedLettersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  gridContainer: {
+    flexDirection: "row",
+    marginRight: 10, // Space between grid and backspace button
+  },
+  gridLetter: {
+    fontSize: 32,
+    margin: 10,
+  },
+  submitButton: {
+    backgroundColor: "#4caf50",
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 18,
+  },
+  score: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  round: {
+    fontSize: 20,
+    marginTop: 10,
+  },
+  gameOverContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  gameOverText: {
+    fontSize: 80,
+    marginBottom: 20,
+    color: "white",
+  },
+  finalScore: {
+    fontSize: 32,
+    color: "white",
+    marginBottom: 20,
+  },
+  resetButton: {
+    backgroundColor: "#4caf50",
+    padding: 10,
+    borderRadius: 10,
+  },
+  resetButtonText: {
+    color: "white",
+    fontSize: 18,
+  },
+  backspaceButton: {
+    backgroundColor: "transparent", // Make backspace button transparent
+    padding: 10,
+    marginLeft: 10, // Space between letters and backspace button
+  },
+  backspaceText: {
+    color: "#ff4500", // Color for backspace arrow
+    fontSize: 24,
+  },
+});
+
+export default WordSoup;
