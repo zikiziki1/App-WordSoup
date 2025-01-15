@@ -16,7 +16,7 @@ const WordSoup = () => {
   const [selectedLetters, setSelectedLetters] = useState([]); // Letters selected by player
   const [score, setScore] = useState(0); // Player score
   const [timeLeft, setTimeLeft] = useState(40); // Timer
-  const [round, setRound] = useState(1); // Current round
+  const [round, setRound] = useState(1); // round
   const [submittedWords, setSubmittedWords] = useState([]); // Words already submitted this round
   const [gameOver, setGameOver] = useState(false); // Game Over state
   const timerRef = useRef();
@@ -33,7 +33,7 @@ const WordSoup = () => {
       });
     }, 1000);
 
-    return () => clearInterval(timerRef.current); // Clear interval on unmount
+    return () => clearInterval(timerRef.current); // Clear interval sur unmount
   }, []);
 
   const startNewRound = () => {
@@ -50,14 +50,14 @@ const WordSoup = () => {
         alphabet.charAt(Math.floor(Math.random() * alphabet.length))
       );
     }
-    setLetters(shuffleArray(randomLetters)); // Shuffle the letters for random display
+    setLetters(shuffleArray(randomLetters)); // Shuffle the letters pour random display
   };
 
   const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
 
   const handleLetterPress = (letter) => {
     if (!selectedLetters.includes(letter)) {
-      setSelectedLetters([...selectedLetters, letter]); // Add letter to selected
+      setSelectedLetters([...selectedLetters, letter]); // Add letter en tant que selected
     } else {
       Alert.alert(
         "Duplicate Letter",
@@ -132,7 +132,7 @@ const WordSoup = () => {
   const handleBackspace = () => {
     setSelectedLetters((prevLetters) => prevLetters.slice(0, -1)); // Remove last selected letter
   };
-
+  //Généré par AI , besoin de debug et test
   return (
     <GestureHandlerRootView style={styles.container}>
       <Text style={styles.title}>Word Soup</Text>
